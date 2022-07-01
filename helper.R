@@ -223,3 +223,50 @@ build_pl_df = function(rdf=rdf, spatial=spatial)
 }
 
 
+load_restricted_pucks = function(recompute=F){
+    pucks = c('F03','SW6','SW56','SW55','SW33','SW30','SW31')
+    restricted_pucks = list()
+    if(recompute){
+        cmb = readRDS('./0_DATA/SCRNA/cmb_jun28.RDS')
+        cmb@meta.data$sherry_clusters = cmb@meta.data$supertype_label
+        non_in = rownames(subset(cmb@meta.data,class_label != 'GABAergic'))
+        cmb@meta.data[non_in,'sherry_clusters'] = cmb@meta.data[non_in, 'subclass_label']
+        tmp_ref = factor(gsub("[[:punct:]]", "",cmb@meta.data$sherry_clusters))
+        names(tmp_ref) = rownames(cmb@meta.data)
+        aln_smrt_jun13_ref = spacexr::Reference(cmb@assays$RNA@counts,tmp_ref)
+
+        puck_rctd = list()
+        
+        
+        for(p in pucks){
+            puck_rctd[[p]] = readRDS(paste0('./0_DATA/PUCKS/B_PREPROCESSED/rctd_ref_',p,'.RDS'))
+            sel_tmp = read.csv2(paste0('./1_ANALYSIS/BC/',x,'_bc_apr_1.csv'),header = F)
+            restricted_pucks[[x]] = restrict_puck(puck_rctd[[x]], sel_tmp$V1)
+            restricted_pucks[[x]] = create.RCTD(restricted_pucks[[x]], 
+                                                aln_smrt_jun13_ref, 
+                                                max_cores = 15, 
+                                                test_mode = FALSE)
+        }
+    }else{
+        for(p in pucks){
+        restricted_pucks[[p]] = readRDS(paste0('./0_DATA/PUCKS/C_RESTRICTED/',p,'_restricted_jun15.RDS'))
+        }
+    }
+    return(restricted_pucks)
+}
+process_pucks = function(restricted_pucks, recompute=F){
+    if(recompute){
+        for(x in names(restricted_pucks)){
+            myRCTD = restricted_pucks[[x]]
+            myRCTD = run.RCTD(myRCTD, doublet_mode = 'doublet')
+            restricted_pucks[[x]] = myRCTD
+            }
+     
+    }else{
+    
+      for(x in names(restricted_pucks)){
+          restricted_pucks[[x]] = readRDS(paste0('./0_DATA/PUCKS/D_PROCESSED/',x,'_post_jun15.RDS'))
+      }  
+    }
+    return(restricted_pucks)
+}
